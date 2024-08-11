@@ -1,0 +1,477 @@
+loginback:
+Loginback1Application.java:
+package com.example.loginback;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+
+@SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
+public class Loginback1Application {
+
+	public static void main(String[] args) {
+		SpringApplication.run(Loginback1Application.class, args);
+	}
+
+}
+Webconfig.java
+package com.example.loginback;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("http://localhost:3000") // Replace with your frontend URL
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*");
+    }
+}
+controller:
+controller.java:
+package com.example.loginback.controller;
+import com.example.loginback.model.User;
+import com.example.loginback.service.Userservice;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api")
+@CrossOrigin(origins = "http://localhost:3000")
+public class Controller {
+
+ @Autowired
+ private Userservice userService;
+
+ @PostMapping("/login")
+ public ResponseEntity<String> loginUser(@RequestBody User loginDto) {
+     User user = userService.findByEmailAndPassword(loginDto.getEmail(), loginDto.getPassword());
+     if (user != null) {
+         return ResponseEntity.ok("Login successful");
+     } else {
+         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password");
+     }
+ }
+
+ @PostMapping("/register")
+ public ResponseEntity<String> registerUser(@RequestBody User registrationDto) {
+     try {
+         userService.saveUser(registrationDto);
+         return ResponseEntity.ok("Registration successful");
+     } catch (Exception e) {
+         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration failed");
+     }
+ }
+
+ @PostMapping("/users/{userId}/address")
+ public ResponseEntity<String> addUserAddress(@PathVariable Long userId, @RequestBody User addressDto) {
+     User user = userService.getUserById(userId);
+     if (user == null) {
+         return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+     }
+   
+     user.setPhoneNumber(addressDto.getPhoneNumber());
+     userService.saveUser(user);
+     return ResponseEntity.ok("Address added successfully");
+ }
+
+ @GetMapping("/users/{userId}/address")
+ public ResponseEntity<User> getUserAddress(@PathVariable Long userId) {
+     User user = userService.getUserById(userId);
+     if (user == null) {
+         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+     }
+     return ResponseEntity.ok(user);
+ }
+}
+contactcontroller.java:
+package com.example.loginback.controller;
+import com.example.loginback.model.ContactMessage;
+import com.example.loginback.service.ContactMessageService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/contact")
+public class ContactMessageController {
+
+    @Autowired
+    private ContactMessageService contactMessageService;
+
+    @PostMapping("/send")
+    public ResponseEntity<ContactMessage> sendMessage(@RequestBody ContactMessage contactMessage) {
+        ContactMessage savedMessage = contactMessageService.saveContactMessage(contactMessage);
+        return ResponseEntity.ok(savedMessage);
+    }
+}
+Transactioncontroller.java:
+package com.example.loginback.controller;
+
+
+
+import com.example.loginback.model.Transaction;
+import com.example.loginback.service.TransactionService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/transactions")
+public class TransactionController {
+ @Autowired
+ private TransactionService transactionService;
+
+ @GetMapping
+ public List<Transaction> getAllTransactions() {
+     return transactionService.getAllTransactions();
+ }
+
+ @GetMapping("/{id}")
+ public ResponseEntity<Transaction> getTransactionById(@PathVariable Long id) {
+     Transaction transaction = transactionService.getTransactionById(id);
+     if (transaction == null) {
+         return ResponseEntity.notFound().build();
+     }
+     return ResponseEntity.ok(transaction);
+ }
+
+ @PostMapping
+ public Transaction createTransaction(@RequestBody Transaction transaction) {
+     return transactionService.saveTransaction(transaction);
+ }
+
+ @DeleteMapping("/{id}")
+ public ResponseEntity<Void> deleteTransaction(@PathVariable Long id) {
+     Transaction transaction = transactionService.getTransactionById(id);
+     if (transaction == null) {
+         return ResponseEntity.notFound().build();
+     }
+     transactionService.deleteTransaction(id);
+     return ResponseEntity.noContent().build();
+ }
+}
+model:
+contactmessage.java:
+package com.example.loginback.model;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class ContactMessage {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private String email;
+    private String message;
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+}
+transaction.java:
+package com.example.loginback.model;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Transaction {
+ @Id
+ @GeneratedValue(strategy = GenerationType.IDENTITY)
+ private Long id;
+
+ private String name;
+ private String date;
+ private int amount;
+ private String type; // "income" or "expense"
+ private String paymentMethod;
+ private String category;
+
+ // Getters and Setters
+ public Long getId() {
+     return id;
+ }
+
+ public void setId(Long id) {
+     this.id = id;
+ }
+
+ public String getName() {
+     return name;
+ }
+
+ public void setName(String name) {
+     this.name = name;
+ }
+
+ public String getDate() {
+     return date;
+ }
+
+ public void setDate(String date) {
+     this.date = date;
+ }
+
+ public int getAmount() {
+     return amount;
+ }
+
+ public void setAmount(int amount) {
+     this.amount = amount;
+ }
+
+ public String getType() {
+     return type;
+ }
+
+ public void setType(String type) {
+     this.type = type;
+ }
+
+ public String getPaymentMethod() {
+     return paymentMethod;
+ }
+
+ public void setPaymentMethod(String paymentMethod) {
+     this.paymentMethod = paymentMethod;
+ }
+
+ public String getCategory() {
+     return category;
+ }
+
+ public void setCategory(String category) {
+     this.category = category;
+ }
+}
+user.java:
+// User.java
+package com.example.loginback.model;
+
+import jakarta.persistence.*;
+import java.util.List;
+
+@Entity
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String email;
+
+    private String password;
+    private String phoneNumber;
+    // Default constructor
+    public User() {}
+
+    // Parameterized constructor
+    public User(String email, String password, String firstName, String lastName, String phoneNumber, String street, String city, String state, String postalCode, String country) {
+        this.email = email;
+        this.password = password;
+        this.phoneNumber = phoneNumber;
+    }
+
+    // Getters and Setters
+    // (Include getters and setters for the new fields here)
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+
+}
+repository:
+userrepository.java:
+package com.example.loginback.repository;
+
+import com.example.loginback.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmailAndPassword(String email, String password);
+}
+contactmessagerepository.java:
+package com.example.loginback.repository;
+import com.example.loginback.model.ContactMessage;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ContactMessageRepository extends JpaRepository<ContactMessage, Long> {
+}
+transactionrepository.java:
+package com.example.loginback.repository;
+
+import com.example.loginback.model.Transaction;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+}
+service:
+userservice.java:
+package com.example.loginback.service;
+
+import com.example.loginback.model.User;
+import com.example.loginback.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class Userservice {
+
+    @Autowired
+    private UserRepository userRepository;
+
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User findByEmailAndPassword(String email, String password) {
+        Optional<User> user = userRepository.findByEmailAndPassword(email, password);
+        return user.orElse(null);
+    }
+
+    public User getUserById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+}
+contactmessageservice.java:
+package com.example.loginback.service;
+import com.example.loginback.model.ContactMessage;
+import com.example.loginback.repository.ContactMessageRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class ContactMessageService {
+
+    @Autowired
+    private ContactMessageRepository contactMessageRepository;
+
+    public ContactMessage saveContactMessage(ContactMessage contactMessage) {
+        return contactMessageRepository.save(contactMessage);
+    }
+
+    public List<ContactMessage> getAllMessages() {
+        return contactMessageRepository.findAll();
+    }
+}
+Transactionservice.java:
+package com.example.loginback.service;
+
+
+
+import com.example.loginback.model.Transaction;
+import com.example.loginback.repository.TransactionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class TransactionService {
+ @Autowired
+ private TransactionRepository transactionRepository;
+
+ public List<Transaction> getAllTransactions() {
+     return transactionRepository.findAll();
+ }
+
+ public Transaction getTransactionById(Long id) {
+     return transactionRepository.findById(id).orElse(null);
+ }
+
+ public Transaction saveTransaction(Transaction transaction) {
+     return transactionRepository.save(transaction);
+ }
+
+ public void deleteTransaction(Long id) {
+     transactionRepository.deleteById(id);
+ }
+}
+
